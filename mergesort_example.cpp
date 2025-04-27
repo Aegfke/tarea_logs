@@ -344,8 +344,7 @@ int main()
 
     fclose(in);
 
-    externalSort(input_file, output_file, num_ways,
-                 run_size);
+    externalSort(input_file, output_file, num_ways,run_size);
 
     return 0;
 }
