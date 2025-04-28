@@ -1,182 +1,243 @@
-#include "mergesort.hpp"
-#include <bits/stdc++.h>
+#include <iostream>
+#include <fstream>
+#include <vector>
+#include <climits>
+#include <cstdio>
+#include <cstring>
 using namespace std;
 
-// Constructor: Builds a heap from a given array
-MinHeap::MinHeap(MinHeapNode a[], int size) {
-    heap_size = size;
-    harr = a;
-    int i = (heap_size - 1) / 2;
-    while (i >= 0) {
-        MinHeapify(i);
-        i--;
-    }
-}
+typedef long long ll;
 
-int MinHeap::left(int i) {
-    return (2 * i + 1);
-}
+#define BLOCK_SIZE (4096)   // Size of a block in elements
+#define RAM_LIMIT (1 * 1024 * 1024) // 1M elements in RAM
 
-int MinHeap::right(int i) {
-    return (2 * i + 2);
-}
+struct MinHeapNode 
+{ 
+    ll element;
+    int file_index;
+};
 
-MinHeapNode MinHeap::getMin() {
-    return harr[0];
-}
+void swap(MinHeapNode* a, MinHeapNode* b) 
+{ 
+    MinHeapNode temp = *a; 
+    *a = *b; 
+    *b = temp; 
+} 
 
-void MinHeap::replaceMin(MinHeapNode x) {
-    harr[0] = x;
-    MinHeapify(0);
-}
+class MinHeap 
+{ 
+    MinHeapNode* heap_arr; 
+    int heap_size; 
 
-void MinHeap::MinHeapify(int i) {
-    int l = left(i);
-    int r = right(i);
-    int smallest = i;
-
-    if (l < heap_size && harr[l].element < harr[i].element)
-        smallest = l;
-
-    if (r < heap_size && harr[r].element < harr[smallest].element)
-        smallest = r;
-
-    if (smallest != i) {
-        swap(&harr[i], &harr[smallest]);
-        MinHeapify(smallest);
-    }
-}
-
-void swap(MinHeapNode* x, MinHeapNode* y) {
-    MinHeapNode temp = *x;
-    *x = *y;
-    *y = temp;
-}
-
-void merge(int arr[], int l, int m, int r) {
-    int i, j, k;
-    int n1 = m - l + 1;
-    int n2 = r - m;
-    int* L = new int[n1];
-    int* R = new int[n2];
-
-    for (i = 0; i < n1; i++)
-        L[i] = arr[l + i];
-    for (j = 0; j < n2; j++)
-        R[j] = arr[m + 1 + j];
-
-    i = 0; j = 0; k = l;
-    while (i < n1 && j < n2) {
-        if (L[i] <= R[j])
-            arr[k++] = L[i++];
-        else
-            arr[k++] = R[j++];
+public: 
+    
+    MinHeapNode getMin() { return heap_arr[0]; }
+    
+    void replaceMin(MinHeapNode x) 
+    { 
+        heap_arr[0] = x; 
+        MinHeapify(0); 
     }
 
+    void MinHeapify(int i)
+    { 
+        int l = 2*i + 1; 
+        int r = 2*i + 2; 
+        int smallest = i; 
+        if (l < heap_size && heap_arr[l].element < heap_arr[i].element) 
+            smallest = l; 
+        if (r < heap_size && heap_arr[r].element < heap_arr[smallest].element) 
+            smallest = r; 
+        if (smallest != i) 
+        { 
+            swap(&heap_arr[i], &heap_arr[smallest]); 
+            MinHeapify(smallest); 
+        } 
+    }
+
+    MinHeap(MinHeapNode a[], int size)
+    { 
+        heap_arr = a;
+        heap_size = size; 
+        int i = (heap_size - 1)/2; 
+        while (i >= 0) 
+        { 
+            MinHeapify(i); 
+            i--; 
+        } 
+    }
+};
+
+void merge(ll arr[], ll left, ll mid, ll right) 
+{ 
+    ll n1 = mid - left + 1;
+    ll n2 = right - mid;
+    
+    vector<ll> L(arr + left, arr + mid + 1);
+    vector<ll> R(arr + mid + 1, arr + right + 1);
+    
+    int i = 0, j = 0, k = left;
+    
+    while (i < n1 && j < n2)
+        arr[k++] = (L[i] <= R[j]) ? L[i++] : R[j++];
+    
     while (i < n1)
         arr[k++] = L[i++];
-
+    
     while (j < n2)
         arr[k++] = R[j++];
-
-    delete[] L;
-    delete[] R;
 }
 
-void mergeSort(int arr[], int l, int r) {
-    if (l < r) {
-        int m = l + (r - l) / 2;
-        mergeSort(arr, l, m);
-        mergeSort(arr, m + 1, r);
-        merge(arr, l, m, r);
-    }
-}
+void mergeSort(ll arr[], ll l, ll r) 
+{ 
+    if (l < r) 
+    { 
+        ll m = l + (r - l) / 2; 
+        mergeSort(arr, l, m); 
+        mergeSort(arr, m + 1, r); 
+        merge(arr, l, m, r); 
+    } 
+}  
 
-FILE* openFile(char* fileName, char* mode) {
-    FILE* fp = fopen(fileName, mode);
-    if (fp == NULL) {
-        perror("Error while opening the file.\n");
+FILE* openFile(const char* filename, const char* mode) 
+{
+    FILE* fp = fopen(filename, mode);
+    if (!fp) 
+    {
+        perror("Error while opening file");
         exit(EXIT_FAILURE);
     }
     return fp;
 }
 
-void mergeFiles(char* output_file, int n, int k) {
-    FILE* in[k];
-    for (int i = 0; i < k; i++) {
-        char fileName[2];
-        snprintf(fileName, sizeof(fileName), "%d", i);
-        in[i] = openFile(fileName, "r");
+// Write a run to a temporary file
+void writeRun(ll arr[], int size, int run_num) 
+{
+    char filename[20];
+    sprintf(filename, "run%d.bin", run_num);
+    FILE* out = openFile(filename, "wb");
+    fwrite(arr, sizeof(ll), size, out);
+    fclose(out);
+}
+
+// Read next number from run file
+bool readNext(FILE* in, ll& val) 
+{
+    return fread(&val, sizeof(ll), 1, in) == 1;
+}
+
+// Merge all runs into the final sorted file
+void mergeFiles(const char* output_file, int num_runs) 
+{
+    FILE* in[num_runs];
+    for (int i = 0; i < num_runs; i++) 
+    {
+        char filename[20];
+        sprintf(filename, "run%d.bin", i);
+        in[i] = openFile(filename, "rb");
     }
 
-    FILE* out = openFile(output_file, "w");
+    FILE* out = openFile(output_file, "wb");
 
-    MinHeapNode* harr = new MinHeapNode[k];
+    MinHeapNode* heap_arr = new MinHeapNode[num_runs];
+
     int i;
-    for (i = 0; i < k; i++) {
-        if (fscanf(in[i], "%d ", &harr[i].element) != 1)
-            break;
-        harr[i].i = i;
+    for (i = 0; i < num_runs; i++) 
+    {
+        ll val;
+        if (readNext(in[i], val))
+            heap_arr[i] = {val, i};
+        else
+            heap_arr[i] = {LLONG_MAX, i}; // Empty run
     }
-    MinHeap hp(harr, i);
 
-    int count = 0;
-    while (count != i) {
+    MinHeap hp(heap_arr, num_runs);
+
+    while (true) 
+    {
         MinHeapNode root = hp.getMin();
-        fprintf(out, "%d ", root.element);
+        if (root.element == LLONG_MAX)
+            break;
 
-        if (fscanf(in[root.i], "%d ", &root.element) != 1) {
-            root.element = INT_MAX;
-            count++;
-        }
+        fwrite(&root.element, sizeof(ll), 1, out);
+
+        ll val;
+        if (readNext(in[root.file_index], val))
+            root.element = val;
+        else
+            root.element = LLONG_MAX;
+
         hp.replaceMin(root);
     }
 
-    for (int i = 0; i < k; i++)
+    for (i = 0; i < num_runs; i++)
         fclose(in[i]);
-
     fclose(out);
-    delete[] harr;
+
+    delete[] heap_arr;
 }
 
-void createInitialRuns(char* input_file, int run_size, int num_ways) {
-    FILE* in = openFile(input_file, "r");
-    FILE* out[num_ways];
-    char fileName[2];
-    for (int i = 0; i < num_ways; i++) {
-        snprintf(fileName, sizeof(fileName), "%d", i);
-        out[i] = openFile(fileName, "w");
-    }
+// --- NEW FUNCTION: read binary file by blocks ---
+vector<ll> read_block(FILE* file, size_t block_elements, size_t& start_position) 
+{
+    vector<ll> block(block_elements);
+    fseek(file, start_position * sizeof(ll), SEEK_SET);
+    size_t read_count = fread(block.data(), sizeof(ll), block_elements, file);
+    block.resize(read_count);  // shrink if less than requested
+    start_position += read_count;
+    return block;
+}
 
-    int* arr = (int*)malloc(run_size * sizeof(int));
+// --- MAIN FUNCTION to create initial runs ---
+int createInitialRunsBlockBased(const char* input_file) 
+{
+    FILE* in = openFile(input_file, "rb");
 
-    bool more_input = true;
-    int next_output_file = 0;
-    int i;
+    vector<ll> ram_buffer;
+    ram_buffer.reserve(RAM_LIMIT);
 
-    while (more_input) {
-        for (i = 0; i < run_size; i++) {
-            if (fscanf(in, "%d ", &arr[i]) != 1) {
-                more_input = false;
-                break;
-            }
+    size_t start_position = 0;
+    int run_num = 0;
+
+    while (true) 
+    {
+        vector<ll> block = read_block(in, BLOCK_SIZE, start_position);
+        if (block.empty())
+            break;
+
+        // Add block to RAM buffer
+        ram_buffer.insert(ram_buffer.end(), block.begin(), block.end());
+
+        // If buffer full, sort and write
+        if (ram_buffer.size() >= RAM_LIMIT) 
+        {
+            mergeSort(ram_buffer.data(), 0, ram_buffer.size() - 1);
+            writeRun(ram_buffer.data(), ram_buffer.size(), run_num++);
+            ram_buffer.clear();
         }
-
-        mergeSort(arr, 0, i - 1);
-
-        for (int j = 0; j < i; j++)
-            fprintf(out[next_output_file], "%d ", arr[j]);
-
-        next_output_file++;
     }
 
-    for (int i = 0; i < num_ways; i++)
-        fclose(out[i]);
+    // After reading all blocks, if any data remains
+    if (!ram_buffer.empty()) 
+    {
+        mergeSort(ram_buffer.data(), 0, ram_buffer.size() - 1);
+        writeRun(ram_buffer.data(), ram_buffer.size(), run_num++);
+        ram_buffer.clear();
+    }
+
     fclose(in);
-    free(arr);
+    return run_num;
 }
 
-void externalSort(char* input_file, char* output_file, int num_ways, int run_size) {
-    createInitialRuns(input_file, run_size, num_ways);
-    mergeFiles(output_file, run_size, num_ways);
+// --- MAIN PROGRAM ---
+int main() 
+{
+    const char* input_file = "sequence_4M_1.bin";
+    const char* output_file = "sorted_output.bin";
+
+    int num_runs = createInitialRunsBlockBased(input_file);
+    mergeFiles(output_file, num_runs);
+
+    cout << "External Merge Sort Completed. Output file: " << output_file << endl;
+    return 0;
 }

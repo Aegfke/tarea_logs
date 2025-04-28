@@ -4,7 +4,7 @@
 #include <random>
 #include <algorithm>
 
-#define M (1 * 1024 * 1024)  // 1MB = 1024 * 1024 bytes, the RAM size, should be 50 * ...
+#define M (1 * 1024 * 1024)  // 1MB = 1024 * 1024 bytes, the RAM size, 
 
 // B should be block size, in my case is 4096
 
