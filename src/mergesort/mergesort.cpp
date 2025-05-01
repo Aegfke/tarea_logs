@@ -176,7 +176,89 @@ void mergeFiles(const char* output_file, int num_runs)
 
     delete[] heap_arr;
 }
+void mergeKFiles(int start_idx, int k, int pass, const char* output_file) 
+{
+    FILE* in[k];
+    for (int i = 0; i < k; i++) 
+    {
+        char filename[30];
+        if (pass == 0)
+            sprintf(filename, "run%d.bin", start_idx + i);
+        else
+            sprintf(filename, "pass%d_run%d.bin", pass, start_idx + i);
 
+        in[i] = openFile(filename, "rb");
+    }
+
+    FILE* out = openFile(output_file, "wb");
+
+    MinHeapNode* heap_arr = new MinHeapNode[k];
+
+    for (int i = 0; i < k; i++) 
+    {
+        ll val;
+        if (readNext(in[i], val))
+            heap_arr[i] = {val, i};
+        else
+            heap_arr[i] = {LLONG_MAX, i}; // Run vacío
+    }
+
+    MinHeap hp(heap_arr, k);
+
+    while (true) 
+    {
+        MinHeapNode root = hp.getMin();
+        if (root.element == LLONG_MAX)
+            break;
+
+        fwrite(&root.element, sizeof(ll), 1, out);
+
+        ll val;
+        if (readNext(in[root.file_index], val))
+            root.element = val;
+        else
+            root.element = LLONG_MAX;
+
+        hp.replaceMin(root);
+    }
+
+    for (int i = 0; i < k; i++)
+        fclose(in[i]);
+    fclose(out);
+
+    delete[] heap_arr;
+}
+void mergeFilesarity(const char* output_file, int num_runs, int arity) 
+{
+    int current_run = 0;
+    int pass = 0;
+
+    // Repetir la fusión en varias etapas si hay más runs que aridad
+    while (num_runs > arity) 
+    {
+        int new_run_num = 0;
+
+        for (int i = 0; i < num_runs; i += arity) 
+        {
+            int group_size = std::min(arity, num_runs - i);
+
+            // Crear nombre para archivo temporal de salida
+            char merged_filename[30];
+            sprintf(merged_filename, "pass%d_run%d.bin", pass + 1, new_run_num);
+
+            // Mezclar los group_size archivos a uno nuevo
+            mergeKFiles(i, group_size, pass, merged_filename);
+
+            new_run_num++;
+        }
+
+        num_runs = new_run_num;
+        pass++;
+    }
+
+    // Fusión final: num_runs <= arity
+    mergeKFiles(0, num_runs, pass, output_file);
+}
 // --- NEW FUNCTION: read binary file by blocks ---
 vector<ll> read_block(FILE* file, size_t block_elements, size_t& start_position) 
 {
@@ -230,7 +312,7 @@ int createInitialRunsBlockBased(const char* input_file)
 }
 
 // --- MAIN PROGRAM ---
-int main() 
+/*int main() 
 {
     const char* input_file = "sequence_4M_1.bin";
     const char* output_file = "sorted_output.bin";
@@ -240,4 +322,5 @@ int main()
 
     cout << "External Merge Sort Completed. Output file: " << output_file << endl;
     return 0;
-}
+}*/
+
