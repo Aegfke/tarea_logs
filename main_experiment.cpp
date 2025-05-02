@@ -11,7 +11,7 @@ using namespace std;
 extern int createInitialRunsBlockBased(const char* input_file);
 extern void mergeFilesarity(const char* output_file, int num_runs, int arity);
 // Function to perform external merge sort
-void external_merge_sort(const char* input, const char* output, long N, int arity) {
+double external_merge_sort(const char* input, const char* output, long N, int arity) {
     // Buffer for reading and writing data (block size)
 
     // Disk access and time tracking
@@ -22,6 +22,7 @@ void external_merge_sort(const char* input, const char* output, long N, int arit
     clock_t end_time = clock();
     double time_taken = ((double)(end_time - start_time)) / CLOCKS_PER_SEC;
     cout << "Execution Time: " << time_taken << " seconds" << endl;
+    return time_taken;
 }
 std::vector<uint64_t> generate_sequence(size_t num_elements) {
     std::vector<uint64_t> sequence(num_elements);
@@ -39,19 +40,32 @@ void write_to_binary_file(const std::string& filename, const std::vector<uint64_
     outfile.write(reinterpret_cast<const char*>(sequence.data()), sequence.size() * sizeof(uint64_t));
 }
 //binary search of the n element in the array between i and j positions
-int binary_search(int n,int i,int j,int arr[]){
-    int mid=i+(j-i)/2;
-    if(arr[mid]==n){
-        return arr[mid];
+int ternary_search(int i,int j,int arr[],const char* input, const char* output,int N){
+    int nelm=j-i;
+    if(nelm<4){
+        double to=external_merge_sort(input, output, N, arr[i]);
+        int min=arr[i];
+        int k=i+1;
+        while(k<j){
+            double tk=external_merge_sort(input, output, N, arr[k]);
+            if(tk<to){
+                to=tk;
+                min=arr[k];
+            }
+            k++;
+        }
+        return min;
     }
-    if (arr[mid]<n){
-        return binary_search(n,mid+1,j,arr);
+    int mid1 = i + (j - i) / 3;
+    int mid2 = j - (j - i) / 3;
+    double t1=external_merge_sort(input, output, N, arr[mid1]);
+    double t2=external_merge_sort(input, output, N, arr[mid2]);
+    if(t1>t2){
+        return ternary_search(mid1,j,arr,input,output,N);
     }
-    if(arr[mid]>n){
-        return binary_search(n,i,mid-1,arr); 
-    }
-    return -1;
+    return ternary_search(i,mid1,arr,input, output,N);
 }
+
 int main() {
     // Open input and output binary files
     cout << ">>> external_merge_sort started" << endl;
@@ -67,12 +81,19 @@ int main() {
     }
 
     // Set N (total data size) and arity (number of subarrays to merge at once)
-    long N = 60 * 1024 * 1024;  // Example size (60MB)
-    int arity = ARITY;  // Arity of the merge (set to 4 here)
+    long N = 60 * 1024 * 1024;// Example size (60MB)
+    int b=4096/sizeof(uint64_t);
+    int start=2;
+    int end=b;
+    int size=end-start+1;
+    int arr[size];
+    for (int i=start;i<size;i++){
+        arr[i-start]=i;
+    } 
+    int arity = ternary_search(0,size-1,arr,input,output,N);  // Arity of the merge (set to 4 here)
 
     // Perform external merge sort
-    external_merge_sort(input, output, N, arity);
-
+    cout << "Optimal arity: " << arity << endl;
     // Close files
 
     return 0;
