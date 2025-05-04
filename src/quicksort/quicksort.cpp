@@ -11,11 +11,20 @@
 #define M (1024 * 1024)
 
 
+std::vector<std::vector<uint64_t>> main_ram;
+
+
 
 
 QuickSort::QuickSort(const std::string &filename, int arity) {
     this->filename;
     this->arity;
+    this-> RAM = main_ram;
+    std::ifstream input(filename,std::ios::binary);
+    uint64_t* myNumbers;
+    input.read(reinterpret_cast<char*>(&myNumbers),sizeof(uint64_t*));
+    int getArrayLength = sizeof(myNumbers) / sizeof(uint64_t);
+    this-> array_lenght_in_blocks = getArrayLength/block;
 }
 
 std::vector<uint64_t> QuickSort::read_block_at(int offset) const {
@@ -43,7 +52,7 @@ std::vector<uint64_t> QuickSort::read_block_at(int offset) const {
     return ret; // Tal vez lo mejor es escribir esto en buffer
 }
 
-void QuickSort::read_blocks_to_ram(int start, int end) {
+void QuickSort::read_blocks_to_ram(int start) {
 
     for (size_t i = 0; i < RAM.size(); i++) {
 
@@ -60,7 +69,7 @@ std::vector<uint64_t> QuickSort::choose_a_pivots(std::vector<uint64_t> &b, int a
         int index = rand() % b.size();
         pivots[i] = b[index];
     }
-
+    std::sort(pivots.begin(), pivots.end());
     return pivots;
 
 }
@@ -70,14 +79,17 @@ void QuickSort::sort_block(std::vector<uint64_t> &b) {
     std::sort(b.begin(), b.end());
 }
 
-
+void QuickSort::write_to_binary_file(const std::string& filename, const std::vector<uint64_t>& sequence){
+    std::ofstream outfile(filename, std::ios::binary);
+    outfile.write(reinterpret_cast<const char*>(sequence.data()), sequence.size() * sizeof(uint64_t));
+}
 void QuickSort::partition(void) {
 
     // Crear a archivos binarios y guardar en vector
 
-    std::vector<std::string> files;
-
-    for (int i = 0; i < arity; i++) {
+    std::vector<std::string> file_names;
+    std::vector<std::ofstream> files_ofstream;
+    for (int i = 0; i <= arity; i++) {
 
         // Name of each file
 
@@ -89,8 +101,8 @@ void QuickSort::partition(void) {
             std::cerr << "Error al abrir el archivo" << nombre << std::endl;
             std::exit(1);
         }
-
-        files.emplace_back(subarray);
+        file_names.emplace_back(subarray);
+        files_ofstream.emplace_back(subarray);
 
     }
 
@@ -98,17 +110,54 @@ void QuickSort::partition(void) {
 
     //Traer desde el ultimo bloque leido a tamaño ram bloque de memoria
 
-    int filenamesize;
+    for (int i = 0; i < array_lenght_in_blocks; i += (M - block)) {
 
-    for (int i = 0; i < filenamesize; i++) {
+        // Traer bloques a memoria
+        read_blocks_to_ram(i);
 
-        read_blocks_to_ram(i, i*block);
+        // 
+        for (int b = 0; b < RAM.size(); b++) {
+            for (int x = 0; x < block; x++) {
 
-        for (uint64_t x : RAM) {
-            
-            auto sub = std::lower_bound(pivots.begin(), pivots.end(), x)
+                
+                auto place = std::lower_bound(pivots.begin(), pivots.end(), x);
+                int partition_index = std::distance(pivots.begin(), place);
+
+                uint64_t n = RAM[b][x];
+
+                files_ofstream[partition_index].write(reinterpret_cast<const char*>(&n), sizeof(uint64_t));
+
+            }
         }
+
+
+
+
     }
+
+    //Cerrar archivos abiertos
+    for (int i = 0; i <= arity; i++) {
+        files_ofstream[i].close();
+
+         // Aplicar recursivamente Quicksort a los binarios generados
+         QuickSort(file_names[i], arity);//CAMBIAR N IN BLOCKS
+    }
+
+    
+
+
+    // Escribir cada uno de los binarios generados de salida en output.bin
+    std::ofstream output("output.bin",std::ios::binary);
+    for (int i = 0; i <= arity; i++){
+        std::ifstream in(file_names[i],std::ios::binary);
+        uint64_t* myNumbers;
+        in.read(reinterpret_cast<char*>(&myNumbers),sizeof(uint64_t*));
+        output.write(reinterpret_cast<const char*>(&myNumbers),sizeof(uint64_t*));
+    }
+
+
+
+
 
 
 
@@ -132,6 +181,16 @@ namespace QuickSortUtils {
         }
         out.close();
     }
+}
+
+int main() {
+    
+    const char* input_file = "sequence_4M_1.bin";
+    const char* output_file = "sorted_output.bin";
+
+    QuickSort(input_file, 4);
+
+
 }
 
 
